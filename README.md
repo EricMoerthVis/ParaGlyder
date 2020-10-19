@@ -19,7 +19,7 @@ VTK - The visualization Toolkit https://vtk.org/
 
 ITK - The Insight Toolkit https://itk.org/
 
-Partly based on vtl-itk-viewer https://kitware.github.io/itk-vtk-viewer/index.html
+Partly based on vtk-itk-viewer https://kitware.github.io/itk-vtk-viewer/index.html
 
 Programmatically changes the darkness of a color https://www.sitepoint.com/javascript-generate-lighter-darker-color/
 
