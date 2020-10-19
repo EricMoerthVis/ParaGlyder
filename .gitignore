@@ -1,0 +1,9 @@
+mri-analyzer
+node_modules/*
+.idea/*
+idea/*
+/.idea/workspace.xml
+/.idea/workspace.xml
+/.idea/jsLibraryMappings.xml
+/.idea/prototype.iml
+/.idea/workspace.xml

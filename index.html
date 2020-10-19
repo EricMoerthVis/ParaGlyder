@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+    <title>MRI Explorer</title>
+
+    <link href="style/style.css" rel="stylesheet" type="text/css">
+    <link crossorigin="anonymous" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css"
+          integrity="sha384-50oBUHEmvpQ+1lW4y57PTFmhCaXp0ML5d60M1M7uH2+nqUivzIebhndOJK28anvf" rel="stylesheet">
+
+    <!--SCRIPT IMPORTS:-->
+    <script charset="utf-8" src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
+    <!--    D3 color management-->
+    <script src="https://d3js.org/d3-color.v1.min.js"></script>
+    <script src="https://d3js.org/d3-interpolate.v1.min.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.7.1/d3-tip.min.js"></script>
+    <!--    D3 color management-->
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="http://code.jquery.com/ui/1.12.1/jquery-ui.min.js" type="text/javascript"></script>
+    <script src="https://underscorejs.org/underscore-min.js" type="text/javascript"></script>
+    <script src="http://layout.jquery-dev.com/lib/js/jquery.layout-latest.js" type="text/javascript"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/jstree.min.js"></script>
+    <script src="https://unpkg.com/vtk.js@8.3.17/dist/vtk.js"></script>
+    <script src="https://unpkg.com/itk@9.4.0/umd/itk.js"></script>
+
+    <!--    Own scripts-->
+    <script src="src/VersionFixes.js" type="text/javascript"></script>
+    <script src="src/mriAnalyzer.js" type="text/javascript"></script>
+    <script src="src/Rixel.js" type="text/javascript"></script>
+    <script src="src/DrawRixels.js" type="text/javascript"></script>
+    <script src="src/RixelsBase.js" type="text/javascript"></script>
+    <script src="src/RadarChart.js" type="text/javascript"></script>
+    <script src="src/RadarChartTooltip.js" type="text/javascript"></script>
+    <script src="src/DrawChart.js" type="text/javascript"></script>
+    <script src="src/Analysis.js" type="text/javascript"></script>
+    <script src="src/Patient.js" type="text/javascript"></script>
+    <script src="src/PatientManager.js" type="text/javascript"></script>
+</head>
+<body>
+<div class="ui-layout-north">
+    <text style="color: white; font-size:30px; font-family: Calibri,serif;">ParaGlyder</text>
+</div>
+
+<div class="ui-layout-west">
+    <div style="height: 92%">
+        <header class="menuHeader">
+            <button class="menuButton" id="addPatient"><i class="fas fa-user-plus"
+                                                          style="color:white;font-size: 18px;"></i></button>
+        </header>
+        <div id="jstree"></div>
+    </div>
+    <div>
+        <div>Similarity view info:
+            <div class="tooltip"><i class="fas fa-info"
+                                    style="color:white;font-size: 18px;margin-left: 8px"></i>
+                <span class="tooltiptext">
+                    The similarity view highlights regions in
+                    the volume where the similarity to the
+                    content of the selection sphere is high
+                    across modalities<br>
+                    y: toggle similarity view
+                </span>
+            </div>
+        </div>
+        <div>
+            Picker handling info:
+            <div class="tooltip"><i class="fas fa-info"
+                                    style="color:white;font-size: 18px;"></i>
+                <span class="tooltiptext">
+                    Shift: move in plane (left/right/up/down)<br>
+                    Ctrl: move along depth (front/back)<br>
+                    Alt+T: toggle main sphere<br>
+                    Alt+C: toggle compare sphere<br>
+                    t: snap main to slice<br>
+                    c: snap compare to slice<br>
+                    m: mirror main and compare<br>
+                    hold the right mouse button and move: change sphere size
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="ui-layout-center">
+    <div class="content"></div>
+    <div class="ui-layout-north">
+        <div>
+            <div class="rixelOptions2">Modality select:</div>
+            <input class="slider" id="imageselect" max="10" min="0" onchange="setImage(this.value)"
+                   oninput="setImage(this.value)" step="0.1"
+                   type="range"
+                   value="0">
+        </div>
+    </div>
+</div>
+<div class="ui-layout-east">
+    <!-- Tab links -->
+    <div class="tab">
+        <button class="tablinks" id="defaultOpen" onclick="openTab(event, 'Rixel')">
+            <text style="color: white; font-size:20px; font-family: Calibri,serif;">Stixels</text>
+        </button>
+        <button class="tablinks" onclick="openTab(event, 'Radar')">
+            <text style="color: white; font-size:20px; font-family: Calibri,serif;">Radar</text>
+        </button>
+    </div>
+
+    <!-- Tab content -->
+    <div class="tabcontent" id="Radar">
+        <header>
+            <text style="color: white; font-size:25px; font-family: Calibri,serif;">Radar Chart</text>
+        </header>
+        <div class="radarChart"></div>
+        <div>
+            <div class="rixelOptions">Radar size:</div>
+            <input class="slider" id="radarMaxValue" max="1" min="0.1" onchange="setRadarMaxValue(this.value)"
+                   oninput="setRadarMaxValue(this.value)" step="0.1"
+                   type="range"
+                   value="0.5">
+        </div>
+    </div>
+
+    <div class="tabcontent" id="Rixel">
+        <header>
+            <text onmouseover="showGrid(true)" onmouseout="showGrid(false)"
+                  style="color: white; font-size:25px; font-family: Calibri,serif;">Stixels
+            </text>
+        </header>
+        <div class="rixelsBase">
+            <div class="rixelsGrid">
+                <div class="grid-container" id="rixelContainer"></div>
+            </div>
+        </div>
+        <div>
+            <div class="rixelOptions">Grid size:</div>
+            <input class="slider" id="myRange" max="32" min="6" onchange="setNewRixelSice(this.value)"
+                   oninput="setNewRixelSice(this.value)" step="1"
+                   type="range"
+                   value="6">
+        </div>
+        <div>
+            <div class="rixelOptions">Stixels size:</div>
+            <input class="slider" id="rixelMaxValueRange" max="1" min="0.1" onchange="setRixelMaxValue(this.value)"
+                   oninput="setRixelMaxValue(this.value)" step="0.1"
+                   type="range"
+                   value="1">
+        </div>
+        <div>
+            <div class="rixelOptions">Similarity colermap:</div>
+            <img style="width: 81%;margin-top:20px; margin-right:5px" src="style/colormap.png">
+        </div>
+    </div>
+</div>
+
+<!--SCRIPTING:-->
+<script>
+    var containerMriAnalyzer = document.querySelector('.content');
+    var containerRixels = document.querySelector('.rixelsBase');
+    var lastPersonAdded = null;
+    var nodeSelected = null;
+    var currentTab = null;
+    var personSelected = null;
+    var personSelectedBefore = null;
+    var fileSelected = null;
+    var rixelDataSave = null;
+    var lastRixelSelection = null;
+    var lastVolVisSelection = null;
+    var mriAnalyzerVar = null;
+    var rixelWorker = new Worker("src/DrawRixels.js");
+    var similarityRendering = false;
+    var lastImage = null;
+    var lastSimImage = null;
+    var filesSave = null;
+    var tooltip = null;
+
+    tooltip = d3.tip()
+        .attr("class", "d3-tip")
+        .offset([-100, -400])
+        .html("<div id='tipDiv'></div>");
+
+    rixelWorker.addEventListener('message', function (e) {
+        if (e.data["msg"] === "calculationDone") {
+            // console.log("calculationDone");
+            rixelDataSave = e.data["data"];
+            drawRixels(e.data["data"]);
+        } else if (e.data["msg"] === "gridSize") {
+            // console.log("GridSize" + e.data["data"]);
+            sizeGrid = e.data["data"];
+        }
+    }, false);
+
+    var viewer = mriAnalyzer.processParameters(containerMriAnalyzer, {fullscreen: false});
+
+    if (!viewer) {
+        mriAnalyzer.createViewerFromLocalFiles(containerMriAnalyzer);
+    }
+
+    // LAYOUT
+    var myLayout;
+    $(document).ready(function () {
+        var layoutSettings = {
+            west: {
+                minSize: 250,
+                size: 250
+            },
+            east: {
+                minSize: 200,
+                size: 750,
+                // initClosed: true
+            },
+            center: {
+                minSize: 0
+            },
+            north: {
+                minSize: 50,
+                resizable: false,
+                slidable: false,
+                closeable: false,
+                togglerLength_open: 0,
+                togglerLength_closed: 0,
+            },
+
+            east__onresize: function () {
+                // console.log("Redraw the chart");
+                if (currentTab === "Rixel") {
+                    // rixelWorker.postMessage({function: "calculateAndDrawRixels"});
+                    drawRixels(rixelDataSave);
+                } else if (currentTab === "Radar") {
+                    // rixelWorker.postMessage({function: "calculateAndDrawRixels"});
+                    updateDimensions();
+                    updateChart();
+                }
+            }
+        };
+        myLayout = $('body').layout(layoutSettings);
+    });
+
+    // FILE EXPLORER
+    $('#jstree').jstree({
+        "core": {
+            "check_callback": true,
+            "data": []
+        },
+        "types": {
+            "#": {
+                "max_depth": 2
+            },
+            'file': {
+                "valid_children": [],
+            }
+        },
+        "checkbox": {
+            three_state: true,
+            cascade: 'up'
+        },
+        "plugins": ["types", "checkbox", "dnd"]
+    });
+
+    $('.jstree').on('redraw.jstree', (e, data) => {
+        handleRadarChartAndRixelView();
+    });
+
+    $('#jstree').on("changed.jstree", function (e, data) {
+        var i, j, numRoots = 0, root;
+
+        if (data.action === "select_node") {
+            nodeSelected = data.node.original;
+            if (data.node.parent !== "#") {
+                if (personSelectedBefore !== data.node.parent) {
+                    personSelected = data.node.parent; //selected person to draw the rixels for
+                    fileSelected = data.node.original.attr.value;
+                    loadVolumeViewer();
+                }
+            }
+        } else {
+            nodeSelected = null;
+        }
+
+        // Analyze how many roots there are
+        for (i = 0, j = data.selected.length; i < j; i++) {
+            const node = data.instance.get_node(data.selected[i]);
+            if (node.parent === "#") {
+                numRoots++;
+                root = i;
+            }
+        }
+
+        handleRadarChartAndRixelView();
+    });
+
+    function handleRadarChartAndRixelView() {
+        //Gather the files for the loading in the right order
+        let x = 0;
+        let files = [];
+
+        if (personSelected != null) {
+            let pers = $('#jstree').jstree().get_node('#' + personSelected);
+            pers.children.forEach((child) => {
+                let childNode = $('#jstree').jstree().get_node('#' + child);
+                if (childNode.state.selected === true) {
+                    files[x] = childNode.original.attr.value;
+                    x++;
+                }
+            });
+        }
+
+        if (personSelected != null && files.length > 0) {
+            addPatient(personSelected, files, (patient) => {
+                drawRixelsBasis(patient, containerRixels, tooltip);
+                var dataObject = patient.getPatientMessageObject();
+                // console.log(dataObject);
+                rixelWorker.postMessage({function: "transferData", data: dataObject});
+                rixelWorker.postMessage({function: "calculateAndDrawRixels"});
+                if (!fileArrayEquals(filesSave, files)) {
+                    getPatient(personSelected).resamplePickers();
+                    filesSave = files;
+                }
+            }, (name, type) => {
+                if (type === "tumor") {
+                    var dataObject = getPatient(name).getTumorDataMessageObject();
+                    rixelWorker.postMessage({function: "setTumorData", data: dataObject});
+                }
+                updateChart();
+            }, (simImage) => {
+                lastSimImage = simImage;
+                if (similarityRendering) {
+                    mriAnalyzerVar.setImage(simImage);
+                }
+            });
+            if (personSelectedBefore !== personSelected) {
+                loadVolumeViewer();
+                personSelectedBefore = personSelected;
+            }
+        }
+    }
+
+    function fileArrayEquals(filesOld, filesNew) {
+        if (filesOld === null && filesNew !== null) {
+            return false;
+        } else if (filesNew === null && filesOld !== null) {
+            return false;
+        } else if (filesNew.length !== filesOld.length) {
+            return false;
+        } else {
+            for (let i = 0; i < filesOld.length; i++) {
+                if (filesOld[i] !== filesNew[i]) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    function loadVolumeViewer() {
+        let patient = getPatient(personSelected);
+        if (patient !== undefined) {
+            // LOAD new data in the VIEW
+            let createViewerPromise = mriAnalyzer.createViewerFromGivenFiles(containerMriAnalyzer, [fileSelected], false, (tumorPicker) => {
+                    getPatient(personSelected).setTumorHandler(tumorPicker);
+                }, (comparisonPicker) => {
+                    getPatient(personSelected).setComparisonValue(comparisonPicker);
+                }, (plane, slice) => {
+                    new Promise(function (resolve) {
+                        setSlice(plane, slice);
+                    });
+                }, (boundingBox) => {
+                    setBoundingBox(boundingBox);
+                }, {positionGauss: 0.01, heightGauss: 1.0, widthGauss: 0.1, xBias: 0.1, yBias: 0.1},
+                {tumor: patient.colors.tumor, compare: patient.colors.compare}, () => {
+                    similarityRendering = !similarityRendering;
+                    renderSimilarity();
+                });
+
+            Promise.resolve(createViewerPromise).then((handler) => {
+                mriAnalyzerVar = handler;
+            })
+        }
+    }
+
+
+    const addFileToPatient = () => {
+        var input = $(document.createElement("input"));
+        input.attr("type", "file");
+        input.attr("multiple", "multiple");
+        input.change(function (data) {
+            // add the files to the tree as child listings
+            var i, j;
+            for (i = 0, j = this.files.length; i < j; i++) {
+                var id = lastPersonAdded.id + this.files[i].name;
+                if (!$('#jstree').jstree().get_node(id)) {
+                    $('#jstree').jstree().create_node(lastPersonAdded.id,
+                        {
+                            "id": id, "text": this.files[i].name,
+                            "icon": "jstree-file", "attr": {title: "file", value: this.files[i]}
+                        });
+                }
+                $('#jstree').jstree().check_node($('#jstree').jstree().get_node(id));
+            }
+            $('#jstree').jstree().open_node(lastPersonAdded);
+        });
+        input.trigger("click"); // opening dialog
+        return true;
+    };
+
+    // Button Listeners
+    document.getElementById("addPatient").addEventListener("click", function () {
+        var person = prompt("Please enter the patient", "");
+        if (person != null && person !== "" && !$('#jstree').jstree().get_node(person)) {
+            $('#jstree').jstree().create_node('#', {"id": person, "text": person}, "last", function () {
+                lastPersonAdded = $('#jstree').jstree().get_node(person);
+                $('#jstree').jstree().check_node(lastPersonAdded);
+                addFileToPatient();
+            });
+        }
+    });
+
+    //CHART
+    function updateChart() {
+        let chData = getChartData();
+        if (chData.length !== 0) {
+            RadarChart(".radarChart", chData["dataArray"], chData["names"], radarChartOptions);
+        }
+    }
+
+    function openTab(evt, tabName) {
+        // Declare all variables
+        var i, tabcontent, tablinks;
+
+        // Get all elements with class="tabcontent" and hide them
+        tabcontent = document.getElementsByClassName("tabcontent");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+
+        // Get all elements with class="tablinks" and remove the class "active"
+        tablinks = document.getElementsByClassName("tablinks");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+
+        // Show the current tab, and add an "active" class to the button that opened the tab
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+
+        currentTab = tabName;
+        if (tabName === "Rixel") {
+            rixelWorker.postMessage({function: "calculateAndDrawRixels"});
+        }
+    }
+
+    function rixelSize(value) {
+        rixelWorker.postMessage({function: "setGridSize", data: value});
+    }
+
+    function setNewRixelSice(value) {
+        rixelWorker.postMessage({function: "setNewGridSize", data: value});
+    }
+
+    function setRixelMaxValue(maxVale) {
+        setMaxValue(maxVale);
+        rixelWorker.postMessage({function: "setRixelsMaxValue", data: maxVale});
+    }
+
+    function setRadarMaxValue(maxVale) {
+        setRadarMaxVal(maxVale);
+        updateChart();
+    }
+
+    /**
+     * Setting the icon in the treeview representing which file is shown in the volume viewer and in the rixel view
+     * @param patientName
+     *      The patient name to find in the treeview
+     * @param fileName
+     *      The selected file
+     */
+    function selectFileForRixelView(patientName, fileName) {
+        renderSimilarity();
+
+        let selection = $('#jstree').jstree().get_node('#' + patientName + fileName);
+        // console.log($('#jstree').jstree().get_node('#' + patientName)); TODO => use for the sorting after drag and drop
+        if (lastRixelSelection !== null) {
+            $("#jstree").jstree(true).set_icon(lastRixelSelection, "style/file.png");
+        }
+        $("#jstree").jstree(true).set_icon(selection, "style/volRix.png");
+        lastRixelSelection = selection;
+        lastVolVisSelection = selection;
+        if (mriAnalyzerVar !== null) {
+            let image = getPatient(patientName).getImageToFileName(fileName);
+            if (image !== null) {
+                mriAnalyzerVar.setImage(image);
+                lastImage = image;
+            }
+        }
+    }
+
+    function renderSimilarity() {
+        // Get the checkbox
+        // If the checkbox is checked, display the output text
+        if (similarityRendering === true) {
+            if (lastSimImage !== null && mriAnalyzerVar !== null) {
+                mriAnalyzerVar.setImage(lastSimImage); // adapt colormap and tarnsferfunction
+                mriAnalyzerVar.setColorMap('Viridis (matplotlib)');
+                mriAnalyzerVar.setGaussian({
+                    positionGauss: 0.8,
+                    heightGauss: 1.0,
+                    widthGauss: 0.1,
+                    xBias: 0.1,
+                    yBias: 0.1
+                });
+            }
+        } else {
+            let img;
+            if (lastImage !== null) {
+                img = lastImage;
+            } else if (imageSave !== null) {
+                img = imageSave;
+            }
+            if (img !== null && mriAnalyzerVar !== null) {
+                mriAnalyzerVar.setImage(img); // adapt colormap and tarnsferfunction
+                mriAnalyzerVar.setColorMap('Grayscale');
+                mriAnalyzerVar.setGaussian({
+                    positionGauss: 0.01,
+                    heightGauss: 1.0,
+                    widthGauss: 0.1,
+                    xBias: 0.1,
+                    yBias: 0.1
+                });
+            }
+        }
+    }
+
+    document.getElementById("defaultOpen").click();
+</script>
+</body>
+</html>
